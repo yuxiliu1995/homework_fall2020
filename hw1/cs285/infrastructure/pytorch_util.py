@@ -1,13 +1,9 @@
-from typing import Union, Optional
+from typing import Union
+
 import torch
-import numpy as np
 from torch import nn
 
 Activation = Union[str, nn.Module]
-
-
-def _identity(x):
-    return x
 
 
 _str_to_activation = {
@@ -17,6 +13,7 @@ _str_to_activation = {
     'sigmoid': nn.Sigmoid(),
     'selu': nn.SELU(),
     'softplus': nn.Softplus(),
+    'identity': nn.Identity(),
 }
 
 def build_mlp(
@@ -25,7 +22,7 @@ def build_mlp(
         n_layers: int,
         size: int,
         activation: Activation = 'tanh',
-        output_activation: Optional[Activation] = None,
+        output_activation: Activation = 'identity',
 ):
     """
         Builds a feedforward neural network
@@ -62,5 +59,25 @@ def build_mlp(
 
     return torch.nn.Sequential(*layers)
 
-def from_numpy(array):
-    return torch.from_numpy(array.astype(np.float32))
+device = None
+
+
+def init_gpu(gpu_id=0):
+    global device
+    if torch.cuda.is_available():
+        device = torch.device("cuda:" + str(gpu_id))
+    else:
+        device = torch.device("cpu")
+        print("GPU not detected. Defaulting to CPU.")
+
+
+def set_device(gpu_id):
+    torch.cuda.set_device(gpu_id)
+
+
+def from_numpy(*args, **kwargs):
+    return torch.from_numpy(*args, **kwargs).float().to(device)
+
+
+def to_numpy(tensor):
+    return tensor.to('cpu').detach().numpy()
