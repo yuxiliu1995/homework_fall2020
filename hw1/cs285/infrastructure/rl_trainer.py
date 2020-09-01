@@ -43,7 +43,7 @@ class RL_Trainer(object):
         # Maximum length for episodes
         self.params['ep_len'] = self.params['ep_len'] or self.env.spec.max_episode_steps
 
-        # Is this env continuous, or self.discrete?
+        # Is the action space of the env continuous or discrete?
         discrete = isinstance(self.env.action_space, gym.spaces.Discrete)
         self.params['agent_params']['discrete'] = discrete
 
@@ -70,9 +70,8 @@ class RL_Trainer(object):
         ## INIT VARS
         #############
 
-        ## TODO initialize all of the TF variables (that were created by agent, etc.)
-        ## HINT: use global_variables_initializer
-        TODO
+        ## initialize all of the TF variables (that were created by agent, etc.)
+        self.sess.run(tf.global_variables_initializer())
 
     def run_training_loop(self, n_iter, collect_policy, eval_policy,
                         initial_expertdata=None, relabel_with_expert=False,

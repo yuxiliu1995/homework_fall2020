@@ -19,7 +19,6 @@ _str_to_activation = {
     'softplus': nn.Softplus(),
 }
 
-
 def build_mlp(
         input_size: int,
         output_size: int,
@@ -32,9 +31,6 @@ def build_mlp(
         Builds a feedforward neural network
 
         arguments:
-            input_placeholder: placeholder variable for the state (batch_size, input_size)
-            scope: variable scope of the network
-
             n_layers: number of hidden layers
             size: dimension of each hidden layer
             activation: activation of each hidden layer
@@ -44,15 +40,27 @@ def build_mlp(
             output_activation: activation of the output layer
 
         returns:
-            output_placeholder: the result of a forward pass through the hidden layers + the output layer
+            model: the result of a forward pass through the hidden layers + the output layer
     """
     if isinstance(activation, str):
         activation = _str_to_activation[activation]
     if isinstance(output_activation, str):
         output_activation = _str_to_activation[output_activation]
-    # TODO: return a MLP. This should be an instance of nn.Module
-    raise NotImplementedError
 
+    layers = []
+
+    if n_layers == 0: # no hidden layers
+        layers += [nn.Linear(input_size, output_size)]
+    else:
+        layers += [nn.Linear(input_size, size)]
+        layers += [activation, nn.Linear(size, size)] * (n_layers - 1)
+        layers += [activation]
+        layers += [nn.Linear(size, output_size)]
+
+    if output_activation: # final layer activation
+        layers += [output_activation]
+
+    return torch.nn.Sequential(*layers)
 
 def from_numpy(array):
     return torch.from_numpy(array.astype(np.float32))
