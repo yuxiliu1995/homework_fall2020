@@ -24,6 +24,17 @@ class ReplayBuffer(object):
             return 0
 
     def add_rollouts(self, paths, concat_rew=True):
+        """
+        Takes a list of trajectories, first append it to self.paths, then
+        decompose paths to separate lists of
+        observations, actions, rewards, next_observations, terminals
+        then append each one to the corresponding variable. For example,
+        observations is appended to self.obs
+
+        Inputs
+            - paths: a list of trajectories
+            - concat_rew=True: whether rewards from paths are to be concatenated.
+        """
 
         # add new rollouts into our list of rollouts
         for path in paths:
@@ -64,6 +75,14 @@ class ReplayBuffer(object):
     ########################################
 
     def sample_random_data(self, batch_size):
+        """
+        Samples randomly from the buffered replays.
+        If batch_size is bigger than the buffer size, just return the entire
+        buffer.
+
+        Inputs
+            - batch_size: sample size
+        """
         assert (
                 self.obs.shape[0]
                 == self.acs.shape[0]

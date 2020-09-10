@@ -8,6 +8,13 @@ import pickle
 
 
 def create_linear_layer(W, b) -> nn.Linear:
+    """
+    Takes
+        - W: (out_features x in_features) numpy array
+        - b: (1 x out_features) numpy array
+    Returns
+        - linear_layer: nn.Linear, PyTorch dense layer
+    """
     # in_features, out_features = W.shape
     out_features, in_features = W.shape
     linear_layer = nn.Linear(
@@ -20,6 +27,10 @@ def create_linear_layer(W, b) -> nn.Linear:
 
 
 def read_layer(l):
+    """
+    Another helper function for this module only.
+    No idea what it does. Maybe bookkeeping.
+    """
     assert list(l.keys()) == ['AffineLayer']
     assert sorted(l['AffineLayer'].keys()) == ['W', 'b']
     return l['AffineLayer']['W'].astype(np.float32), l['AffineLayer'][
@@ -30,9 +41,11 @@ class LoadedGaussianPolicy(BasePolicy, nn.Module):
     def __init__(self, filename, **kwargs):
         super().__init__(**kwargs)
 
+        # Open the pickled expert policy.
         with open(filename, 'rb') as f:
             data = pickle.loads(f.read())
 
+        # Define the hidden layer activation functions.
         self.nonlin_type = data['nonlin_type']
         if self.nonlin_type == 'lrelu':
             self.non_lin = nn.LeakyReLU(0.01)
@@ -40,18 +53,23 @@ class LoadedGaussianPolicy(BasePolicy, nn.Module):
             self.non_lin = nn.Tanh()
         else:
             raise NotImplementedError()
-        policy_type = [k for k in data.keys() if k != 'nonlin_type'][0]
 
+        # Assert that this loaded policy is a "GaussianPolicy"
+        policy_type = [k for k in data.keys() if k != 'nonlin_type'][0]
         assert policy_type == 'GaussianPolicy', (
             'Policy type {} not supported'.format(policy_type)
         )
         self.policy_params = data[policy_type]
 
+        # The loaded policy has policy_params
+        # policy_params is a dictionary with these 4 entries.
         assert set(self.policy_params.keys()) == {
             'logstdevs_1_Da', 'hidden', 'obsnorm', 'out'
         }
 
         # Build the policy. First, observation normalization.
+        # Under the loaded policy, the observations are (approx) distributed as
+        # N(obsnorm_mean, obsnorm_stdev)
         assert list(self.policy_params['obsnorm'].keys()) == ['Standardizer']
         obsnorm_mean = self.policy_params['obsnorm']['Standardizer']['mean_1_D']
         obsnorm_meansq = self.policy_params['obsnorm']['Standardizer'][
@@ -62,9 +80,13 @@ class LoadedGaussianPolicy(BasePolicy, nn.Module):
 
         self.obs_norm_mean = nn.Parameter(ptu.from_numpy(obsnorm_mean))
         self.obs_norm_std = nn.Parameter(ptu.from_numpy(obsnorm_stdev))
+
+        # Reconstruct the hidden layers froam the loaded data.
         self.hidden_layers = nn.ModuleList()
 
-        # Hidden layers next
+        # The 'hidden' layers must be "FeedforwardNet" type
+        # The layers are kept in `layer_params` dictionary, ordered by the keys.
+        # They are read out, made into PyTorch layers, then appended, in order.
         assert list(self.policy_params['hidden'].keys()) == ['FeedforwardNet']
         layer_params = self.policy_params['hidden']['FeedforwardNet']
         for layer_name in sorted(layer_params.keys()):
@@ -73,7 +95,7 @@ class LoadedGaussianPolicy(BasePolicy, nn.Module):
             linear_layer = create_linear_layer(W, b)
             self.hidden_layers.append(linear_layer)
 
-        # Output layer
+        # Output layer (does not have an activation function).
         W, b = read_layer(self.policy_params['out'])
         self.output_layer = create_linear_layer(W, b)
 
@@ -100,6 +122,8 @@ class LoadedGaussianPolicy(BasePolicy, nn.Module):
             observation = obs[None, :]
         observation = torch.from_numpy(observation.astype(np.float32))
         action = self(observation)
+        # For  classes that inherit from nn.Module,
+        # self(...) implicitly calls self.forward(...)
         return action.detach().numpy()
 
     def save(self, filepath):

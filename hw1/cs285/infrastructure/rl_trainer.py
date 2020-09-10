@@ -22,7 +22,7 @@ class RL_Trainer(object):
         ## INIT
         #############
 
-        # Get params, create logger, create TF session
+        # Get params, create logger.
         self.params = params
         self.logger = Logger(self.params['logdir'])
 
@@ -74,13 +74,13 @@ class RL_Trainer(object):
                         initial_expertdata=None, relabel_with_expert=False,
                         start_relabel_with_expert=1, expert_policy=None):
         """
-        :param n_iter:  number of (dagger) iterations
-        :param collect_policy:
-        :param eval_policy:
-        :param initial_expertdata:
-        :param relabel_with_expert:  whether to perform dagger
-        :param start_relabel_with_expert: iteration at which to start relabel with expert
-        :param expert_policy:
+        :param n_iter: Number of (DAgger) iterations.
+        :param collect_policy: For collecting new trajectories by rollout.
+        :param eval_policy: For logging only, to evaluate how well the agent did based on its training logs.
+        :param initial_expertdata: Path to expert data pkl file. Used in collect_training_trajectories.
+        :param relabel_with_expert: Whether to perform DAgger.
+        :param start_relabel_with_expert: Iteration number at which to start relabel with expert.
+        :param expert_policy: For relabelling the collected new trajectories (if running DAgger).
         """
 
         # init vars at beginning of training
@@ -108,21 +108,21 @@ class RL_Trainer(object):
                 initial_expertdata,
                 collect_policy,
                 self.params['batch_size']
-            )  # HW1: implement this function below
+            )
             paths, envsteps_this_batch, train_video_paths = training_returns
             self.total_envsteps += envsteps_this_batch
 
             # relabel the collected obs with actions from a provided expert policy
             if relabel_with_expert and itr>=start_relabel_with_expert:
-                paths = self.do_relabel_with_expert(expert_policy, paths)  # HW1: implement this function below
+                paths = self.do_relabel_with_expert(expert_policy, paths)
 
             # add collected data to replay buffer
             self.agent.add_to_replay_buffer(paths)
 
             # train agent (using sampled data from replay buffer)
-            training_logs = self.train_agent()  # HW1: implement this function below
+            training_logs = self.train_agent()
 
-            # log/save
+            # log/save in the end.
             if self.log_video or self.log_metrics:
 
                 # perform logging
@@ -145,66 +145,89 @@ class RL_Trainer(object):
             batch_size,
     ):
         """
-        :param itr:
-        :param load_initial_expertdata:  path to expert data pkl file
-        :param collect_policy:  the current policy using which we collect data
-        :param batch_size:  the number of transitions we collect
+        This function is called only in run_training_loop in this module.
+        If itr == 0, it simply loads the trajectories from load_initial_expertdata
+        Otherwise, it returns some new trajectories using collect_policy.
+
+        :param itr: The iteration index. Starts at 0.
+        :param load_initial_expertdata: Path to expert data pkl file.
+        :param collect_policy: The current policy using which we collect data.
+        :param batch_size: The number of transitions we collect.
+
         :return:
             paths: a list trajectories
             envsteps_this_batch: the sum over the numbers of environment steps in paths
             train_video_paths: paths which also contain videos for visualization purposes
         """
+        if itr == 0:
+            if load_initial_expertdata:
+                load load_initial_expertdata
+                return loaded_paths, 0, None
+            else:
+                # it's the first iteration, but you aren't loading expert data,
+                # collect `self.params['batch_size_initial']`
+                batch_size = self.params['batch_size_initial']
 
-        # TODO decide whether to load training data or use
-        # HINT: depending on if it's the first iteration or not,
-            # decide whether to either
-                # load the data. In this case you can directly return as follows
-                # ``` return loaded_paths, 0, None ```
-
-                # if it's the first iteration and you aren't loading data, then
-                # `self.params['batch_size_initial']` is the number of transitions you want to collect
-
-        # TODO collect `batch_size` samples to be used for training
-        # HINT1: use sample_trajectories from utils
-        # HINT2: you want each of these collected rollouts to be of length self.params['ep_len']
+        # collect batch_size samples with collect_policy
+        # each of these collected rollouts is of length self.params['ep_len']
         print("\nCollecting data to be used for training...")
-        paths, envsteps_this_batch = TODO
+        paths, envsteps_this_batch = \
+            sample_trajectories(env=self.env,
+                                policy=collect_policy,
+                                min_timesteps_per_batch=batch_size,
+                                max_path_length=self.params['ep_len'])
 
-        # collect more rollouts with the same policy, to be saved as videos in tensorboard
-        # note: here, we collect MAX_NVIDEO rollouts, each of length MAX_VIDEO_LEN
+        # collect more rollouts with collect_policy, to be saved as videos in tensorboard
+        # collect MAX_NVIDEO rollouts, each of length MAX_VIDEO_LEN.
         train_video_paths = None
         if self.log_video:
             print('\nCollecting train rollouts to be used for saving videos...')
-            ## TODO look in utils and implement sample_n_trajectories
             train_video_paths = utils.sample_n_trajectories(self.env, collect_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
 
         return paths, envsteps_this_batch, train_video_paths
 
 
     def train_agent(self):
+        """
+        Sample self.params['train_batch_size'] frames from the replay buffer of
+        the agent, then train the agent upon that.
+        Repeat this for self.params['num_agent_train_steps_per_iter'] steps.
+
+        Returns
+            - all_logs: the entire training log from this training.
+        """
         print('\nTraining agent using sampled data from replay buffer...')
         all_logs = []
         for train_step in range(self.params['num_agent_train_steps_per_iter']):
 
-            # TODO sample some data from the data buffer
-            # HINT1: use the agent's sample function
-            # HINT2: how much data = self.params['train_batch_size']
-            ob_batch, ac_batch, re_batch, next_ob_batch, terminal_batch = TODO
+            # Sample some data from the replay buffer of the agent.
+            # sample size is
+            # self.params['train_batch_size']
+            ob_batch, ac_batch, re_batch, next_ob_batch, terminal_batch \
+                = self.agent.sample(self.params['train_batch_size'])
 
-            # TODO use the sampled data to train an agent
-            # HINT: use the agent's train function
-            # HINT: keep the agent's training log for debugging
-            train_log = TODO
-            all_logs.append(train_log)
+            # Use the sampled data to train an agent
+            train_log = self.agent.train()
+            all_logs.append(train_log) # training log for debugging
         return all_logs
 
     def do_relabel_with_expert(self, expert_policy, paths):
+        """
+        Relabels collected paths with actions from expert_policy.
+
+        Inputs
+            - `expert_policy`: a policy used as reference.
+            - paths: the list of paths. See `replay_buffer.py`.
+        Outputs:
+            - paths: the modified list of paths.
+        """
         print("\nRelabelling collected observations with labels from an expert policy...")
 
-        # TODO relabel collected obsevations (from our policy) with labels from an expert policy
-        # HINT: query the policy (using the get_action function) with paths[i]["observation"]
-        # and replace paths[i]["action"] with these expert labels
-
+        for path in paths:
+            obs = path["observation"]
+            acs = path["action"]
+            for i in range(len(obs)):
+                acs[i] = expert_policy.get_action(obs[i])
         return paths
 
     ####################################
