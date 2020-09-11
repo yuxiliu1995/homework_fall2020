@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import numpy as np
 import time
+import pickle
 
 import gym
 import torch
@@ -140,17 +141,17 @@ class RL_Trainer(object):
     def collect_training_trajectories(
             self,
             itr,
-            load_initial_expertdata,
+            initial_expertdata,
             collect_policy,
             batch_size,
     ):
         """
         This function is called only in run_training_loop in this module.
-        If itr == 0, it simply loads the trajectories from load_initial_expertdata
+        If itr == 0, it simply loads the trajectories from initial_expertdata
         Otherwise, it returns some new trajectories using collect_policy.
 
         :param itr: The iteration index. Starts at 0.
-        :param load_initial_expertdata: Path to expert data pkl file.
+        :param initial_expertdata: Path to expert data pkl file.
         :param collect_policy: The current policy using which we collect data.
         :param batch_size: The number of transitions we collect.
 
@@ -160,8 +161,9 @@ class RL_Trainer(object):
             train_video_paths: paths which also contain videos for visualization purposes
         """
         if itr == 0:
-            if load_initial_expertdata:
-                load load_initial_expertdata
+            if initial_expertdata:
+                pickle_in = open(initial_expertdata, "rb")
+                loaded_paths = pickle.load(pickle_in)
                 return loaded_paths, 0, None
             else:
                 # it's the first iteration, but you aren't loading expert data,
@@ -207,7 +209,13 @@ class RL_Trainer(object):
                 = self.agent.sample(self.params['train_batch_size'])
 
             # Use the sampled data to train an agent
-            train_log = self.agent.train()
+
+            train_log = self.agent.train(
+                ptu.from_numpy(ob_batch),
+                ptu.from_numpy(ac_batch),
+                ptu.from_numpy(re_batch),
+                ptu.from_numpy(next_ob_batch),
+                ptu.from_numpy(terminal_batch))
             all_logs.append(train_log) # training log for debugging
         return all_logs
 

@@ -1,2 +1,4 @@
 *.pyc
 data/
+cs285.egg-info/
+dist/

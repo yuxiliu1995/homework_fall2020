@@ -93,19 +93,15 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     # This function defines the forward pass of the network.
-    # You can return anything you want, but you should be able to differentiate
-    # through it. For example, you can return a torch.FloatTensor. You can also
-    # return more flexible objects, such as a
-    # `torch.distributions.Distribution` object. It's up to you!
+    # Returns a vector of `torch.distributions.Distribution` object.
+    # A Gaussian distribution
     def forward(self, observation: torch.FloatTensor) -> Any:
-        # TODO
-
         if self.discrete:
-            # TODO
+            assert 0 == 1, "Sorry, no time to implement this."
         else:
             action_means = self.mean_net(observation)
-            action_std = logstd
-            return
+            action_std = torch.exp(self.logstd)
+            return action_means + action_std * torch.randn(self.ac_dim)
 
 
 #####################################################

@@ -25,9 +25,15 @@ class BCAgent(BaseAgent):
         self.replay_buffer = ReplayBuffer(self.agent_params['max_replay_buffer_size'])
 
     def train(self, ob_no, ac_na, re_n, next_ob_no, terminal_n):
-        # training a BC agent refers to updating its actor using
-        # the given observations and corresponding action labels
-        log = self.actor.update(ob_no, ac_na)  # HW1: you will modify this
+        """ Update actor policy by supervised learning,
+            given observations and action labels.
+        - ob_no: Observations.
+        - ac_na: Action lables
+        - re_n: ?
+        - next_ob_no: ?
+        - terminal_n: ?
+        """
+        log = self.actor.update(ob_no, ac_na)
         return log
 
     def add_to_replay_buffer(self, paths):
